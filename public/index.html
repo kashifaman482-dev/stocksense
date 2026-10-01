@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StockSense</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, Arial, sans-serif; color: #1f2937; min-height: 100vh;
+    background: linear-gradient(135deg, #e0e7ff 0%, #f3f5f9 55%, #fef3c7 100%); }
+  header { background: linear-gradient(90deg, #1e3a8a, #2563eb); color: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  header b { font-size: 18px; }
+  header button { background: #fff; color: #1e3a8a; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+  nav button { background: #e5e7eb; color: #111; white-space: nowrap; }
+  nav button.active { background: #1e3a8a; color: #fff; }
+  main { max-width: 900px; margin: 0 auto; padding: 12px; }
+  .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  h2 { margin: 0 0 10px; font-size: 18px; }
+  label { display: block; font-size: 13px; margin: 10px 0 4px; color: #4b5563; }
+  input, select, button { font: inherit; padding: 9px 10px; border-radius: 8px; border: 1px solid #cbd5e1; }
+  input, select { width: 100%; }
+  button { cursor: pointer; background: #1e3a8a; color: #fff; border: none; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.secondary { background: #e5e7eb; color: #111; }
+  button.danger { background: #b91c1c; }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+  tr.low td { background: #fff4e5; }
+  .msg { margin-top: 10px; padding: 9px 10px; border-radius: 8px; font-size: 14px; }
+  .ok { background: #dcfce7; color: #14532d; }
+  .err { background: #fee2e2; color: #7f1d1d; }
+  #chatlog { height: 55vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px; }
+  .bubble { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 14px; white-space: pre-wrap; }
+  .me { align-self: flex-end; background: #1e3a8a; color: #fff; }
+  .bot { align-self: flex-start; background: #e5e7eb; }
+  .bot.error { background: #fee2e2; color: #7f1d1d; }
+  .pending { align-self: flex-start; background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px 12px; max-width: 90%; font-size: 14px; }
+  .pending .row { display: flex; gap: 8px; margin-top: 8px; }
+  #chatform { display: flex; gap: 8px; margin-top: 10px; }
+  #chatform input { flex: 1; }
+  .small { font-size: 12px; color: #6b7280; }
+
+  /* ---------- Login page: mall style ---------- */
+  #login {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; color: #fff; overflow-y: auto;
+    background:
+      linear-gradient(160deg, rgba(30,58,138,.93), rgba(37,99,235,.80)),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 40px, rgba(255,255,255,0) 40px 80px);
+    /* To use your own mall photo, save it as public/mall.jpg and replace the
+       background above with:
+       linear-gradient(rgba(30,58,138,.75), rgba(30,58,138,.75)), url('/mall.jpg') center/cover; */
+  }
+  #login h2 { font-size: 26px; text-align: center; margin-bottom: 4px; }
+  #login h2::before { content: "🛍️"; display: block; font-size: 52px; margin-bottom: 8px; }
+  #login .tagline { text-align: center; margin: 0 0 18px; opacity: .9; font-size: 14px; }
+  #login form { background: #fff; color: #1f2937; padding: 18px; border-radius: 14px; width: 100%; max-width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  #login .hint { margin-top: 14px; font-size: 12px; opacity: .85; text-align: center; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h2>StockSense</h2>
+  <p class="tagline">Nowshera Shopping Mall · Smart inventory</p>
+  <form id="loginForm">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button style="margin-top:14px;width:100%">Log in</button>
+    <div id="loginMsg"></div>
+  </form>
+  <div class="hint">Grocery · Clothing · Electronics · Household</div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <b>🛍️ StockSense</b>
+    <span id="who"></span>
+    <button id="logout">Log out</button>
+  </header>
+  <nav id="tabs">
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="items">Items</button>
+    <button data-tab="stock">Stock in/out</button>
+    <button data-tab="history">History</button>
+    <button data-tab="chat">Assistant</button>
+  </nav>
+
+  <main>
+    <section id="tab-dashboard">
+      <div class="card"><h2>Running low</h2><div class="wrap" id="lowBox"></div></div>
+      <div class="card"><h2>Top sellers (last 7 days)</h2><div class="wrap" id="topBox"></div></div>
+    </section>
+
+    <section id="tab-items" hidden>
+      <div class="card"><h2>All items</h2><div class="wrap" id="itemsBox"></div><div id="itemsMsg"></div></div>
+    </section>
+
+    <section id="tab-stock" hidden>
+      <div class="card">
+        <h2>Record stock</h2>
+        <form id="stockForm">
+          <label for="sItem">Item</label>
+          <select id="sItem" required></select>
+          <label for="sType">Type</label>
+          <select id="sType">
+            <option value="in">Stock in (arrived)</option>
+            <option value="out">Stock out (sold)</option>
+            <option value="damaged">Damaged</option>
+          </select>
+          <label for="sQty">Quantity</label>
+          <input id="sQty" type="number" min="1" step="1" required>
+          <label for="sSupplier">Supplier (optional)</label>
+          <input id="sSupplier" type="text">
+          <label for="sNote">Note (optional)</label>
+          <input id="sNote" type="text">
+          <button style="margin-top:14px;width:100%">Save</button>
+        </form>
+        <div id="stockMsg"></div>
+      </div>
+    </section>
+
+    <section id="tab-history" hidden>
+      <div class="card"><h2>Stock history</h2><div class="wrap" id="historyBox"></div></div>
+    </section>
+
+    <section id="tab-chat" hidden>
+      <div class="card">
+        <h2>Assistant</h2>
+        <div class="small">Ask about stock, or say things like "Add 40 Type-C cables from Ali Traders". Changes only happen after you press Confirm.</div>
+        <div id="chatlog"></div>
+        <form id="chatform">
+          <input id="chatInput" type="text" placeholder="Type a message" maxlength="500" autocomplete="off">
+          <button id="chatSend">Send</button>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let token = localStorage.getItem('token');
+let user = null;
+try { user = JSON.parse(localStorage.getItem('user')); } catch {}
+let items = [];
+
+async function api(method, path, body) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error('Cannot reach the server. Please check that it is running.');
+  }
+  let data = {};
+  try { data = await res.json(); } catch {}
+  if (res.status === 401 && path !== '/login') { logout(); throw new Error('Please log in again.'); }
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
+
+function note(boxId, text, ok) {
+  $(boxId).innerHTML = text ? `<div class="msg ${ok ? 'ok' : 'err'}">${esc(text)}</div>` : '';
+}
+
+/* ---------- login / logout ---------- */
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  note('loginMsg', '');
+  try {
+    const d = await api('POST', '/login', { email: $('email').value.trim(), password: $('password').value });
+    token = d.token; user = d.user;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    $('password').value = '';
+    start();
+  } catch (err) { note('loginMsg', err.message, false); }
+});
+
+function logout() {
+  token = null; user = null;
+  localStorage.removeItem('token'); localStorage.removeItem('user');
+  $('app').hidden = true; $('login').hidden = false;
+}
+$('logout').addEventListener('click', logout);
+
+/* ---------- tabs ---------- */
+function show(tab) {
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  ['dashboard', 'items', 'stock', 'history', 'chat'].forEach((t) => { $('tab-' + t).hidden = t !== tab; });
+  if (tab === 'dashboard') loadDashboard();
+  if (tab === 'items' || tab === 'stock') loadItems();
+  if (tab === 'history') loadHistory();
+}
+$('tabs').addEventListener('click', (e) => { if (e.target.dataset.tab) show(e.target.dataset.tab); });
+
+function start() {
+  if (!token || !user) return logout();
+  $('login').hidden = true; $('app').hidden = false;
+  $('who').textContent = user.name + ' (' + user.role + ')';
+  show('dashboard');
+}
+
+/* ---------- dashboard ---------- */
+async function loadDashboard() {
+  try {
+    const d = await api('GET', '/dashboard');
+    $('lowBox').innerHTML = d.low_stock.length
+      ? '<table><tr><th>Item</th><th>Left</th><th>Reorder at</th></tr>' +
+        d.low_stock.map((i) => `<tr class="low"><td>${esc(i.name)}</td><td>${i.quantity}</td><td>${i.reorder_level}</td></tr>`).join('') + '</table>'
+      : 'Nothing is running low.';
+    $('topBox').innerHTML = d.top_sellers.length
+      ? '<table><tr><th>Item</th><th>Units sold</th></tr>' +
+        d.top_sellers.map((i) => `<tr><td>${esc(i.name)}</td><td>${i.sold}</td></tr>`).join('') + '</table>'
+      : 'No sales recorded in the last 7 days.';
+  } catch (err) { $('lowBox').textContent = err.message; }
+}
+
+/* ---------- items ---------- */
+async function loadItems() {
+  try {
+    items = await api('GET', '/items');
+    const mgr = user.role === 'manager';
+    $('itemsBox').innerHTML =
+      '<table><tr><th>Item</th><th>Section</th><th>In stock</th><th>Reorder at</th>' +
+      (mgr ? '<th>Cost</th>' : '') + '<th>Price</th>' + (mgr ? '<th></th>' : '') + '</tr>' +
+      items.map((i) => `<tr class="${i.quantity <= i.reorder_level ? 'low' : ''}">
+        <td>${esc(i.name)}</td><td>${esc(i.section)}</td><td>${i.quantity}</td><td>${i.reorder_level}</td>
+        ${mgr ? `<td>${esc(i.cost_price)}</td>` : ''}<td>${esc(i.sale_price)}</td>
+        ${mgr ? `<td><button class="secondary" data-price="${i.id}">Edit price</button></td>` : ''}</tr>`).join('') + '</table>';
+    $('sItem').innerHTML = items.map((i) => `<option value="${i.id}">${esc(i.name)} (${i.quantity} left)</option>`).join('');
+  } catch (err) { note('itemsMsg', err.message, false); }
+}
+
+$('itemsBox').addEventListener('click', async (e) => {
+  const id = e.target.dataset.price;
+  if (!id) return;
+  const it = items.find((i) => String(i.id) === id);
+  const cost = prompt('New cost price for ' + it.name, it.cost_price);
+  if (cost === null) return;
+  const sale = prompt('New sale price for ' + it.name, it.sale_price);
+  if (sale === null) return;
+  try {
+    await api('PUT', `/items/${id}/price`, { cost_price: Number(cost), sale_price: Number(sale) });
+    note('itemsMsg', 'Price updated.', true);
+    loadItems();
+  } catch (err) { note('itemsMsg', err.message, false); }
+});
+
+/* ---------- stock form ---------- */
+$('stockForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  note('stockMsg', '');
+  try {
+    const d = await api('POST', '/stock/move', {
+      itemId: Number($('sItem').value), type: $('sType').value, qty: Number($('sQty').value),
+      supplier: $('sSupplier').value.trim(), note: $('sNote').value.trim(),
+    });
+    note('stockMsg', `Saved. ${d.item}: ${d.before} → ${d.after}`, true);
+    $('sQty').value = ''; $('sSupplier').value = ''; $('sNote').value = '';
+    loadItems();
+  } catch (err) { note('stockMsg', err.message, false); }
+});
+
+/* ---------- history ---------- */
+async function loadHistory() {
+  try {
+    const rows = await api('GET', '/movements');
+    $('historyBox').innerHTML = rows.length
+      ? '<table><tr><th>When</th><th>Item</th><th>Type</th><th>Qty</th><th>Supplier</th><th>By</th><th>Via</th></tr>' +
+        rows.map((r) => `<tr><td>${esc(new Date(r.created_at).toLocaleString())}</td><td>${esc(r.item)}</td><td>${esc(r.type)}</td><td>${r.qty}</td><td>${esc(r.supplier || '')}</td><td>${esc(r.by_user)}</td><td>${r.source === 'ai' ? 'AI (confirmed)' : 'Form'}</td></tr>`).join('') + '</table>'
+      : 'No stock changes yet.';
+  } catch (err) { $('historyBox').textContent = err.message; }
+}
+
+/* ---------- assistant chat ---------- */
+function bubble(text, cls) {
+  const d = document.createElement('div');
+  d.className = 'bubble ' + cls;
+  d.textContent = text;
+  $('chatlog').appendChild(d);
+  $('chatlog').scrollTop = $('chatlog').scrollHeight;
+  return d;
+}
+
+function pendingCard(p) {
+  const d = document.createElement('div');
+  d.className = 'pending';
+  const verb = { in: 'Add', out: 'Remove', damaged: 'Mark damaged' }[p.type] || p.type;
+  d.innerHTML = `<b>${esc(verb)} ${p.qty} × ${esc(p.itemName)}</b><br>Stock: ${p.before} → ${p.after}` +
+    (p.supplier ? `<br>Supplier: ${esc(p.supplier)}` : '') +
+    '<div class="row"><button data-act="confirm">Confirm</button><button class="secondary" data-act="cancel">Cancel</button></div>';
+  d.addEventListener('click', async (e) => {
+    const act = e.target.dataset.act;
+    if (!act) return;
+    d.querySelectorAll('button').forEach((b) => (b.disabled = true));
+    try {
+      const r = await api('POST', `/pending/${p.id}/${act}`);
+      d.querySelector('.row').remove();
+      if (act === 'confirm') {
+        d.insertAdjacentHTML('beforeend', `<div class="msg ok">Done. ${esc(r.item)}: ${r.before} → ${r.after}</div>`);
+        loadItems();
+      } else {
+        d.insertAdjacentHTML('beforeend', '<div class="msg ok">Cancelled. Nothing was changed.</div>');
+      }
+    } catch (err) {
+      d.querySelector('.row').remove();
+      d.insertAdjacentHTML('beforeend', `<div class="msg err">${esc(err.message)}</div>`);
+    }
+  });
+  $('chatlog').appendChild(d);
+  $('chatlog').scrollTop = $('chatlog').scrollHeight;
+}
+
+$('chatform').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = $('chatInput').value.trim();
+  if (!text) return;
+  $('chatInput').value = '';
+  bubble(text, 'me');
+  $('chatSend').disabled = true;
+  const wait = bubble('Thinking…', 'bot');
+  try {
+    const d = await api('POST', '/chat', { message: text });
+    wait.textContent = d.reply;
+    if (d.pending) pendingCard(d.pending);
+  } catch (err) {
+    wait.textContent = err.message;
+    wait.classList.add('error');
+  }
+  $('chatSend').disabled = false;
+  $('chatInput').focus();
+});
+
+start();
+</script>
+</body>
+</html>
